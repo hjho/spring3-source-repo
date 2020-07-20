@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?> 
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="orm.mybatis.mapper.boardMapper">
+	<resultMap id="boardMap" type="java.util.Map"/>
+	<!-- 프로시저 -->
+	<select id="proc_boardList" parameterType="map" statementType="CALLABLE">
+		{ call proc_boardList(#{key
+		                       ,jdbcType=CURSOR
+		                       ,mode=OUT
+		                       ,javaType=java.sql.ResultSet
+		                       ,resultMap=boardMap})}
+	</select>
+	
+	<select id="getTotal" parameterType="map" resultType="int">
+        SELECT count(bm.bm_no)
+          FROM board_master_t bm, board_sub_t bs
+         WHERE bm.bm_no = bs.bm_no(+)
+	</select>
+	
+	<select id="boardList" parameterType="map" resultType="java.util.Map">
+		SELECT 
+			   bm.bm_no      ,bm.bm_title 
+			  ,bm.bm_content ,bm.bm_email  
+			  ,bm.bm_pw      ,bm.bm_group 
+			  ,bm.bm_pos     ,bm.bm_step    
+			  ,bm.bm_writer  ,bs.bs_file 
+			  ,bm.bm_hit     
+		  FROM board_master_t bm, board_sub_t bs
+		 WHERE bm.bm_no = bs.bm_no(+)
+		 <if test="bm_no != null">
+		   AND bm.bm_no = #{bm_no}
+		 </if>
+		 ORDER BY bm.bm_group desc, bm_step asc
+	</select>
+	
+	<insert id="boardMINS" parameterType="map">
+		INSERT INTO board_master_t(bm_no
+		                          ,bm_title
+		                          ,bm_writer
+		                          ,bm_email
+		                          ,bm_content
+		                          ,bm_group
+		                          ,bm_pos
+		                          ,bm_step
+		                          ,bm_hit
+		                          ,bm_pw
+		                          ,bm_date
+		                          ) 
+		                    VALUES(#{bm_no}
+		                          ,#{bm_title}
+		                          ,#{bm_writer}
+		                          ,#{bm_email}
+		                          ,#{bm_content}
+		                          ,#{bm_group}
+		                          ,#{bm_pos}
+		                          ,#{bm_step}
+		                          ,0
+		                          ,#{bm_pw}
+		                          ,TO_CHAR(sysdate, 'YYYY-MM-DD')
+		                          )
+	</insert>
+	
+	<!-- insert, update 를 합쳐서 프로시져 만들어야 할 수도 -->
+	<insert id="boardSINS" parameterType="map">
+		INSERT INTO board_sub_t(bm_no
+							   ,bs_seq
+							   ,bs_file
+							   ,bs_size
+								) 
+		                 VALUES(#{bm_no}
+		                 	   ,#{bs_seq}
+		                 	   ,#{bs_file}
+		                 	   ,#{bs_size}
+		                 		)
+	</insert>
+	
+	<!-- 글 수정 -->
+	<update id="boardUPD" parameterType="int">
+		UPDATE board_master_t
+		   SET bm_hit = bm_hit+1
+		 WHERE bm_no = #{value}
+	</update>
+	<update id="bmStepUpdate" parameterType="map">
+		UPDATE board_master_t
+		   SET bm_step = bm_step+1
+		 WHERE bm_group = #{bm_group}
+		   AND bm_step > #{bm_step}
+	</update>
+	
+	<!-- 글 삭제 -->
+	<delete id="boardDEL" parameterType="map">
+		DELETE
+		  FROM board_master_t
+		 WHERE bm_no = #{bm_no}
+	</delete>
+	
+	<!-- 글 목록에서 제목을 클릭했을 떄 조회수 1씩 증가 시키는 sql문 -->
+	<update id="hitCount" parameterType="int">
+		UPDATE board_master_t
+		   SET bm_hit = bm_hit+1
+		 WHERE bm_no = #{value}
+	</update>
+	
+	<!-- 그룹번호 채번하기 -->
+	<!--  -->
+	<select id="getBmGroup" parameterType="map" resultType="int">
+		SELECT NVL((
+		            SELECT /*+index_desc(board_master_t ibm_group)*/bm_group
+		              FROM board_master_t
+		             WHERE rownum = 1
+		            ),0)+1 as bm_group 
+          FROM dual
+	</select>
+	
+	<!-- 글 번호   채번하기 -->
+	<!--  -->
+	<select id="getBmNo" parameterType="int" resultType="int">
+		SELECT NVL((
+		            SELECT /*+index_desc(board_master_t BM_NO_PK)*/bm_no
+		              FROM board_master_t
+		             WHERE rownum = 1
+		            ),0)+1 as bm_no 
+		  FROM dual
+	</select>
+	
+</mapper>
